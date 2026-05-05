@@ -49,3 +49,6 @@ Thumbs.db
 *.tmp
 *.bak
 *.orig
+
+# Local agent instructions
+AGENTS.md

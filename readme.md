@@ -108,10 +108,12 @@ Run the CLI assistant:
 uv run qqcode.py
 ```
 
-## Development Commands
+## Quality Checks
+
+The public repository does not include the author's local test suite. For routine
+checks, use the formatter, linter, and type checker configured in `pyproject.toml`:
 
 ```bash
-uv run pytest          # Run tests, when local tests are present
 uv run ruff check .    # Lint Python files
 uv run black .         # Format Python files
 uv run mypy .          # Run static type checks

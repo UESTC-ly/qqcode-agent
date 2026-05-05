@@ -1,6 +1,6 @@
-# Claude Engineer v3 Custom
+# QQCode Agent
 
-A substantially modified AI assistant framework based on the MIT-licensed `claude-engineer` project. It provides both a terminal assistant and a Flask web interface, supports Anthropic and OpenAI-compatible providers, and loads tools dynamically from the local `tools/` directory.
+QQCode Agent is a substantially modified AI assistant framework based on the MIT-licensed `claude-engineer` project. It provides both a terminal assistant and a Flask web interface, supports Anthropic and OpenAI-compatible providers, and loads tools dynamically from the local `tools/` directory.
 
 ## Features
 
@@ -16,7 +16,7 @@ A substantially modified AI assistant framework based on the MIT-licensed `claud
 ## Project Structure
 
 ```text
-claude-engineer/
+qqcode-agent/
 ├── app.py                  # Flask web interface
 ├── qqcode.py               # CLI assistant and core runtime
 ├── config.py               # Provider, model, token, and path settings

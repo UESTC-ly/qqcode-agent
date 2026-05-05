@@ -119,7 +119,7 @@ wheels = [
 ]
 
 [[package]]
-name = "ce3"
+name = "qqcode"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

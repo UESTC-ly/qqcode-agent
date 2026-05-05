@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, jsonify, url_for
-from ce3 import Assistant
+from qqcode import Assistant
 import os
 from werkzeug.utils import secure_filename
 import base64

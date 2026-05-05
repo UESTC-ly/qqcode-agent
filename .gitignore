@@ -1,8 +1,51 @@
-uploads/
-*.pyc
-.DS_Store
+# Environment and secrets
 .env
-.venv/
+.env.*
+!.env.example
+
+# Python bytecode and caches
 __pycache__/
-.ruff_cache/
+*.py[cod]
+*$py.class
 .pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Local/runtime state
+.omx/
+saved_contexts/
+uploads/
+
+# Private/local notes and generated memory
+doc/
+prompts/QQmemory.md
+
+# Local tests and scratch files not intended for publication
+tests/
+test.py
+testfolder/
+
+# Legacy upstream snapshot/reference copy
+Claude-Eng-v2/
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+*.orig

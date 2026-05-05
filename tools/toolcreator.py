@@ -5,7 +5,9 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 import re
+import requests
 import anthropic
+from config import Config
 
 load_dotenv()
 
@@ -29,7 +31,10 @@ class ToolCreatorTool(BaseTool):
     }
 
     def __init__(self):
-        self.client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
+        if Config.using_openai_compat():
+            self.client = None
+        else:
+            self.client = anthropic.Anthropic(**Config.anthropic_client_kwargs())
         self.console = Console()
         self.tools_dir = Path(__file__).parent.parent / "tools"  # Fixed path
 
@@ -40,6 +45,60 @@ class ToolCreatorTool(BaseTool):
     def _validate_tool_name(self, name: str) -> bool:
         """Validate tool name matches required pattern"""
         return bool(re.match(r'^[a-zA-Z0-9_-]{1,64}$', name))
+
+
+    def _extract_text_from_response(self, response) -> str:
+        """Extract text from Anthropic SDK or OpenAI-compatible responses."""
+        if isinstance(response, dict):
+            choices = response.get("choices") or []
+            if choices:
+                message = choices[0].get("message") or {}
+                return str(message.get("content") or "").strip()
+            return ""
+
+        text_parts = []
+        for content_block in getattr(response, "content", []) or []:
+            block_type = (
+                content_block.get("type")
+                if isinstance(content_block, dict)
+                else getattr(content_block, "type", None)
+            )
+            block_text = (
+                content_block.get("text")
+                if isinstance(content_block, dict)
+                else getattr(content_block, "text", None)
+            )
+            if block_type == "text" and block_text:
+                text_parts.append(str(block_text))
+
+        return "\n".join(text_parts).strip()
+
+    def _create_tool_response(self, prompt: str):
+        """Create tool code with the configured provider."""
+        if Config.using_openai_compat():
+            response = requests.post(
+                Config.openai_chat_completions_url(),
+                headers={
+                    "Authorization": f"Bearer {Config.OPENAI_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": Config.MODEL,
+                    "max_tokens": 4000,
+                    "temperature": 0,
+                    "messages": [{"role": "user", "content": prompt}],
+                },
+                timeout=120,
+            )
+            response.raise_for_status()
+            return response.json()
+
+        return self.client.messages.create(
+            model=Config.MODEL,
+            max_tokens=4000,
+            temperature=0,
+            messages=[{"role": "user", "content": prompt}],
+        )
 
     def execute(self, **kwargs) -> str:
         description = kwargs.get("description")
@@ -86,17 +145,11 @@ Return ONLY the Python code without any explanation or markdown formatting.
 """
 
         try:
-            # Get tool implementation from Claude with animation
-            response = self.client.messages.create(
-                model="claude-3-5-sonnet-20241022",
-                max_tokens=4000,
-                temperature=0,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ]
-            )
-
-            tool_code = response.content[0].text.strip()
+            # Get tool implementation from the configured provider.
+            response = self._create_tool_response(prompt)
+            tool_code = self._extract_text_from_response(response)
+            if not tool_code:
+                return "Error: No text content returned while generating tool code"
 
             # Extract tool name from the generated code
             name_match = re.search(r'name\s*=\s*["\']([a-zA-Z0-9_-]+)["\']', tool_code)

@@ -1,5 +1,6 @@
 let currentImageData = null;
 let currentMediaType = null;
+let currentChatController = null;
 
 // Auto-resize textarea
 const textarea = document.getElementById('message-input');
@@ -11,27 +12,30 @@ textarea.addEventListener('input', function() {
 function appendMessage(content, isUser = false) {
     const messagesDiv = document.getElementById('chat-messages');
     const messageWrapper = document.createElement('div');
-    messageWrapper.className = 'message-wrapper';
+    messageWrapper.className = isUser ? 'message-wrapper user-message' : 'message-wrapper';
     
     const messageDiv = document.createElement('div');
-    messageDiv.className = 'flex items-start space-x-4 space-y-1';
+    messageDiv.className = 'message-row';
     
     // Avatar
     const avatarDiv = document.createElement('div');
     if (isUser) {
-        avatarDiv.className = 'w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-bold text-xs';
+        avatarDiv.className = 'avatar user-avatar';
         avatarDiv.textContent = 'You';
     } else {
-        avatarDiv.className = 'w-8 h-8 rounded-full ai-avatar flex items-center justify-center text-white font-bold text-xs';
-        avatarDiv.textContent = 'CE';
+        avatarDiv.className = 'avatar ai-avatar';
+        avatarDiv.setAttribute('aria-label', 'Orange cat assistant');
+        avatarDiv.textContent = '🐱';
     }
     
     // Message content
     const contentDiv = document.createElement('div');
-    contentDiv.className = 'flex-1';
+    contentDiv.className = 'message-content';
     
     const innerDiv = document.createElement('div');
-    innerDiv.className = 'prose prose-slate max-w-none';
+    innerDiv.className = isUser
+        ? 'message-card user-card prose prose-slate max-w-none'
+        : 'message-card assistant-card prose prose-slate max-w-none';
     
     if (!isUser && content) {
         try {
@@ -94,16 +98,17 @@ function appendThinkingIndicator() {
     messageWrapper.className = 'message-wrapper thinking-message';
     
     const messageDiv = document.createElement('div');
-    messageDiv.className = 'flex items-start space-x-4';
+    messageDiv.className = 'message-row';
     
     // AI Avatar
     const avatarDiv = document.createElement('div');
-    avatarDiv.className = 'w-8 h-8 rounded-full ai-avatar flex items-center justify-center text-white font-bold text-sm';
-    avatarDiv.textContent = 'CE';
+    avatarDiv.className = 'avatar ai-avatar';
+    avatarDiv.setAttribute('aria-label', 'Orange cat assistant');
+    avatarDiv.textContent = '🐱';
     
     // Thinking content
     const contentDiv = document.createElement('div');
-    contentDiv.className = 'flex-1';
+    contentDiv.className = 'message-content';
     
     const thinkingDiv = document.createElement('div');
     thinkingDiv.className = 'thinking';
@@ -119,9 +124,9 @@ function appendThinkingIndicator() {
     return messageWrapper;
 }
 
-// Add command+enter handler
+// Enter sends; Shift+Enter inserts a newline.
 document.getElementById('message-input').addEventListener('keydown', (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
         e.preventDefault();
         document.getElementById('chat-form').dispatchEvent(new Event('submit'));
     }
@@ -134,16 +139,17 @@ function appendToolUsage(toolName) {
     messageWrapper.className = 'message-wrapper';
     
     const messageDiv = document.createElement('div');
-    messageDiv.className = 'flex items-start space-x-4';
+    messageDiv.className = 'message-row';
     
     // AI Avatar
     const avatarDiv = document.createElement('div');
-    avatarDiv.className = 'w-8 h-8 rounded-full ai-avatar flex items-center justify-center text-white font-bold text-sm';
-    avatarDiv.textContent = 'CE';
+    avatarDiv.className = 'avatar ai-avatar';
+    avatarDiv.setAttribute('aria-label', 'Orange cat assistant');
+    avatarDiv.textContent = '🐱';
     
     // Tool usage content
     const contentDiv = document.createElement('div');
-    contentDiv.className = 'flex-1';
+    contentDiv.className = 'message-content';
     
     const toolDiv = document.createElement('div');
     toolDiv.className = 'tool-usage';
@@ -159,13 +165,17 @@ function appendToolUsage(toolName) {
 
 // Add this function near the top of your file
 function updateTokenUsage(usedTokens, maxTokens) {
-    const percentage = (usedTokens / maxTokens) * 100;
+    const safeMaxTokens = Number(maxTokens) || 1;
+    const safeUsedTokens = Number(usedTokens) || 0;
+    const percentage = Math.min(100, (safeUsedTokens / safeMaxTokens) * 100);
     const tokenBar = document.getElementById('token-bar');
     const tokensUsed = document.getElementById('tokens-used');
+    const maxTokensLabel = document.getElementById('max-tokens');
     const tokenPercentage = document.getElementById('token-percentage');
     
     // Update the numbers
-    tokensUsed.textContent = usedTokens.toLocaleString();
+    tokensUsed.textContent = safeUsedTokens.toLocaleString();
+    maxTokensLabel.textContent = safeMaxTokens.toLocaleString();
     tokenPercentage.textContent = `${percentage.toFixed(1)}%`;
     
     // Update the bar
@@ -180,6 +190,51 @@ function updateTokenUsage(usedTokens, maxTokens) {
     }
 }
 
+function clearMessageList() {
+    const messagesDiv = document.getElementById('chat-messages');
+    const messages = messagesDiv.getElementsByClassName('message-wrapper');
+    while (messages.length > 1) {
+        messages[1].remove();
+    }
+    messagesDiv.scrollTop = 0;
+}
+
+function clearLocalInputState() {
+    currentImageData = null;
+    currentMediaType = null;
+    document.getElementById('image-preview')?.classList.add('hidden');
+    document.getElementById('file-input').value = '';
+    document.getElementById('message-input').value = '';
+    resetTextarea();
+}
+
+async function clearConversation() {
+    if (currentChatController) {
+        currentChatController.abort();
+        currentChatController = null;
+    }
+
+    clearMessageList();
+    clearLocalInputState();
+
+    try {
+        const response = await fetch('/reset', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        const data = await response.json().catch(() => null);
+        const maxTokens = data?.token_usage?.max_tokens || parseInt(
+            document.getElementById('max-tokens').textContent.replace(/,/g, ''),
+            10
+        );
+        updateTokenUsage(0, maxTokens);
+    } catch (error) {
+        console.error('Error clearing conversation:', error);
+    }
+}
+
 // Update the chat form submit handler
 document.getElementById('chat-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -188,14 +243,19 @@ document.getElementById('chat-form').addEventListener('submit', async (e) => {
     const message = messageInput.value.trim();
     
     if (!message && !currentImageData) return;
+
+    if (!currentImageData && message === '/clear') {
+        await clearConversation();
+        return;
+    }
     
     // Append user message (and image if present)
     appendMessage(message, true);
     if (currentImageData) {
         // Optionally show the image in the chat
         const imagePreview = document.createElement('img');
-        imagePreview.src = `data:image/jpeg;base64,${currentImageData}`;
-        imagePreview.className = 'max-h-48 rounded-lg mt-2';
+        imagePreview.src = `data:${currentMediaType || 'image/jpeg'};base64,${currentImageData}`;
+        imagePreview.className = 'image-preview-thumb mt-2';
         document.querySelector('.message-wrapper:last-child .prose').appendChild(imagePreview);
     }
     
@@ -206,6 +266,7 @@ document.getElementById('chat-form').addEventListener('submit', async (e) => {
     try {
         // Add thinking indicator
         const thinkingMessage = appendThinkingIndicator();
+        currentChatController = new AbortController();
         
         const response = await fetch('/chat', {
             method: 'POST',
@@ -215,8 +276,10 @@ document.getElementById('chat-form').addEventListener('submit', async (e) => {
             body: JSON.stringify({
                 message: message,
                 image: currentImageData  // This will be null if no image is selected
-            })
+            }),
+            signal: currentChatController.signal
         });
+        currentChatController = null;
         
         const data = await response.json();
         
@@ -244,10 +307,15 @@ document.getElementById('chat-form').addEventListener('submit', async (e) => {
         
         // Clear image after sending
         currentImageData = null;
+        currentMediaType = null;
         document.getElementById('image-preview').classList.add('hidden');
         document.getElementById('file-input').value = '';
         
     } catch (error) {
+        currentChatController = null;
+        if (error.name === 'AbortError') {
+            return;
+        }
         console.error('Error sending message:', error);
         document.querySelector('.thinking-message')?.remove();
         appendMessage('Error: Failed to send message');
@@ -266,34 +334,7 @@ document.getElementById('chat-form').addEventListener('reset', () => {
 // Add at the top of the file
 window.addEventListener('load', async () => {
     try {
-        // Reset the conversation when page loads
-        const response = await fetch('/reset', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        if (!response.ok) {
-            console.error('Failed to reset conversation');
-        }
-        
-        // Clear any existing messages except the first one
-        const messagesDiv = document.getElementById('chat-messages');
-        const messages = messagesDiv.getElementsByClassName('message-wrapper');
-        while (messages.length > 1) {
-            messages[1].remove();
-        }
-        
-        // Reset any other state
-        currentImageData = null;
-        document.getElementById('image-preview')?.classList.add('hidden');
-        document.getElementById('file-input').value = '';
-        document.getElementById('message-input').value = '';
-        resetTextarea();
-        
-        // Reset token usage display
-        updateTokenUsage(0, 200000);
+        await clearConversation();
     } catch (error) {
         console.error('Error resetting conversation:', error);
     }

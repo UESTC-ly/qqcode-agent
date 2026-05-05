@@ -17,7 +17,10 @@ assistant = Assistant()
 
 @app.route('/')
 def home():
-    return render_template('index.html')
+    return render_template(
+        'index.html',
+        max_conversation_tokens=Config.MAX_CONVERSATION_TOKENS,
+    )
 
 @app.route('/chat', methods=['POST'])
 def chat():
@@ -124,7 +127,13 @@ def upload_file():
 def reset():
     # Reset the assistant's conversation history
     assistant.reset()
-    return jsonify({'status': 'success'})
+    return jsonify({
+        'status': 'success',
+        'token_usage': {
+            'total_tokens': 0,
+            'max_tokens': Config.MAX_CONVERSATION_TOKENS,
+        },
+    })
 
 if __name__ == '__main__':
     app.run(debug=False) 

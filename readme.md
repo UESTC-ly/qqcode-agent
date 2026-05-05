@@ -40,8 +40,8 @@ Private runtime data such as `.env`, `saved_contexts/`, `uploads/`, local notes,
 Install [`uv`](https://docs.astral.sh/uv/) first, then clone your repository:
 
 ```bash
-git clone https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPOSITORY.git
-cd YOUR_REPOSITORY
+git clone https://github.com/UESTC-ly/qqcode-agent.git
+cd qqcode-agent
 uv venv
 source .venv/bin/activate
 uv sync
@@ -50,8 +50,8 @@ uv sync
 On Windows PowerShell:
 
 ```powershell
-git clone https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPOSITORY.git
-cd YOUR_REPOSITORY
+git clone https://github.com/UESTC-ly/qqcode-agent.git
+cd qqcode-agent
 uv venv
 .venv\Scripts\activate
 uv sync
